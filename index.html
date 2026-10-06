@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘 뭐 먹지? — 랜덤 메뉴 추천</title>
+  <meta name="description" content="오늘 점심, 저녁 메뉴를 고민 중이라면? 랜덤 메뉴 추천기로 고민을 해결하세요!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d0d14;
+      --card-bg:     rgba(255,255,255,0.04);
+      --border:      rgba(255,255,255,0.08);
+      --text-main:   #f0f0f5;
+      --text-sub:    #8888aa;
+      --accent1:     #ff6b6b;
+      --accent2:     #ffd93d;
+      --accent3:     #6bcb77;
+      --accent4:     #4d96ff;
+      --glow-color:  #ff6b6b;
+      --radius-lg:   24px;
+      --radius-md:   16px;
+      --radius-sm:   10px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Pretendard', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      overflow-x: hidden;
+    }
+
+    /* Animated Blobs */
+    .bg-blobs { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.18; animation: float 12s ease-in-out infinite; }
+    .blob-1 { width: 500px; height: 500px; background: #ff6b6b; top: -150px; left: -150px; animation-delay: 0s; }
+    .blob-2 { width: 400px; height: 400px; background: #4d96ff; bottom: -120px; right: -100px; animation-delay: -4s; }
+    .blob-3 { width: 300px; height: 300px; background: #ffd93d; top: 40%; left: 50%; animation-delay: -8s; }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33%       { transform: translate(30px, -20px) scale(1.08); }
+      66%       { transform: translate(-20px, 30px) scale(0.95); }
+    }
+
+    /* Grid */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* Particles */
+    #particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .particle { position: absolute; font-size: 1.6rem; opacity: 0; animation: rise linear infinite; user-select: none; }
+    @keyframes rise {
+      0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+      10%  { opacity: 0.4; }
+      90%  { opacity: 0.3; }
+      100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* Layout */
+    .page { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
+
+    /* Badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
+      background: rgba(255,107,107,0.15); border: 1px solid rgba(255,107,107,0.3); color: var(--accent1);
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 20px;
+      animation: fadeDown 0.6s ease both;
+    }
+    .badge span { font-size: 1rem; }
+
+    /* Title */
+    h1 {
+      font-size: clamp(3rem, 10vw, 5.5rem); font-weight: 900; line-height: 1.1; text-align: center; margin-bottom: 14px;
+      background: linear-gradient(135deg, #fff 0%, #ffcece 50%, #ffd93d 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      animation: fadeDown 0.7s 0.1s ease both;
+    }
+    .subtitle {
+      font-size: 1.05rem; color: var(--text-sub); text-align: center; margin-bottom: 52px; line-height: 1.6;
+      animation: fadeDown 0.7s 0.2s ease both;
+    }
+
+    /* Result Card */
+    #result-area { width: 100%; max-width: 500px; min-height: 220px; display: flex; align-items: center; justify-content: center; margin-bottom: 36px; animation: fadeDown 0.7s 0.3s ease both; }
+    .result-card {
+      width: 100%; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 40px 32px; text-align: center; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      position: relative; overflow: hidden; transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    .result-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 0%, var(--glow-color) 0%, transparent 70%);
+      opacity: 0; transition: opacity 0.5s;
+    }
+    .result-card.active::before { opacity: 0.08; }
+    .result-card.active { border-color: var(--glow-color); box-shadow: 0 0 0 1px var(--glow-color), 0 0 40px -10px var(--glow-color); }
+
+    .card-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-sub); }
+    .card-placeholder .plate-icon { font-size: 3.5rem; animation: wobble 3s ease-in-out infinite; }
+    @keyframes wobble { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+    .card-placeholder p { font-size: 0.95rem; }
+
+    .card-result { display: none; flex-direction: column; align-items: center; gap: 10px; }
+    .result-card.active .card-placeholder { display: none; }
+    .result-card.active .card-result { display: flex; }
+
+    .result-emoji { font-size: 4rem; line-height: 1; animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .result-category { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); animation: popIn 0.5s 0.05s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .result-name { font-size: clamp(2rem, 6vw, 3rem); font-weight: 900; line-height: 1.2; animation: popIn 0.55s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .result-desc { font-size: 0.9rem; color: var(--text-sub); max-width: 300px; line-height: 1.6; animation: popIn 0.55s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .result-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; animation: popIn 0.55s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    .tag { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: var(--text-sub); }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.6) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Slot */
+    .slot-container { display: none; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+    .slot-container.spinning { display: flex; }
+    .result-card.spinning .card-placeholder, .result-card.spinning .card-result { display: none; }
+    .slot-reel { font-size: 2rem; font-weight: 800; color: var(--text-main); height: 52px; overflow: hidden; display: flex; align-items: center; }
+    .slot-inner { display: flex; flex-direction: column; gap: 4px; animation: spin 0.12s steps(1) infinite; }
+    @keyframes spin { to { transform: translateY(-100%); } }
+    .slot-label { font-size: 0.75rem; color: var(--text-sub); letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* Button */
+    #recommend-btn {
+      position: relative; padding: 18px 52px; border: none; border-radius: var(--radius-md);
+      font-family: inherit; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.02em; cursor: pointer;
+      color: #fff; background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 60%, #ffd93d 100%);
+      background-size: 200% 200%; box-shadow: 0 4px 24px -4px rgba(255, 107, 107, 0.55);
+      transition: transform 0.15s, box-shadow 0.15s; animation: fadeDown 0.7s 0.4s ease both, gradShift 4s ease infinite; overflow: hidden;
+    }
+    #recommend-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%); opacity: 0; transition: opacity 0.2s; }
+    #recommend-btn:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 8px 36px -4px rgba(255, 107, 107, 0.7); }
+    #recommend-btn:hover::after { opacity: 1; }
+    #recommend-btn:active { transform: translateY(0) scale(0.98); }
+    #recommend-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    @keyframes gradShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    .btn-text { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; }
+
+    /* Pills */
+    .category-filter { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 28px; animation: fadeDown 0.7s 0.5s ease both; }
+    .pill { padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(8px); user-select: none; font-family: inherit; }
+    .pill:hover { border-color: rgba(255,255,255,0.18); color: var(--text-main); }
+    .pill.active { color: #fff; border-color: transparent; }
+    .pill[data-cat="전체"].active  { background: linear-gradient(135deg, #666, #444); }
+    .pill[data-cat="한식"].active  { background: linear-gradient(135deg, #ff6b6b, #ff4040); }
+    .pill[data-cat="중식"].active  { background: linear-gradient(135deg, #ff8c42, #ff6b6b); }
+    .pill[data-cat="일식"].active  { background: linear-gradient(135deg, #4d96ff, #6b7fff); }
+    .pill[data-cat="양식"].active  { background: linear-gradient(135deg, #6bcb77, #4db86a); }
+    .pill[data-cat="분식"].active  { background: linear-gradient(135deg, #ffd93d, #ffb800); color:#333; }
+
+    /* History */
+    .history-section { margin-top: 52px; width: 100%; max-width: 500px; animation: fadeDown 0.7s 0.6s ease both; }
+    .history-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-sub); margin-bottom: 12px; text-align: center; }
+    #history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--card-bg); border: 1px solid var(--border); animation: slideIn 0.3s ease both; backdrop-filter: blur(6px); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    .history-emoji { font-size: 1.4rem; }
+    .history-info { flex: 1; }
+    .history-name { font-size: 0.95rem; font-weight: 700; }
+    .history-cat  { font-size: 0.72rem; color: var(--text-sub); margin-top: 2px; }
+    .history-time { font-size: 0.7rem; color: var(--text-sub); }
+
+    /* Confetti */
+    #confetti-canvas { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+
+    footer { position: relative; z-index: 1; text-align: center; padding: 24px; color: var(--text-sub); font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+<div class="bg-grid"></div>
+<div id="particles"></div>
+<canvas id="confetti-canvas"></canvas>
+
+<div class="page">
+
+  <div class="badge"><span>🍽️</span> 오늘의 메뉴 추천기</div>
+
+  <h1>오늘 뭐 먹지?</h1>
+  <p class="subtitle">메뉴 고민은 이제 그만!<br>버튼 한 번으로 오늘의 메뉴를 정해보세요 😋</p>
+
+  <div id="result-area">
+    <div class="result-card" id="result-card">
+      <div class="card-placeholder">
+        <div class="plate-icon">🍽️</div>
+        <p>버튼을 눌러 오늘의 메뉴를 뽑아보세요!</p>
+      </div>
+      <div class="slot-container" id="slot-container">
+        <div class="slot-label">메뉴 선택 중...</div>
+        <div class="slot-reel">
+          <div class="slot-inner" id="slot-inner"></div>
+        </div>
+      </div>
+      <div class="card-result" id="card-result">
+        <div class="result-emoji" id="result-emoji"></div>
+        <div class="result-category" id="result-category"></div>
+        <div class="result-name" id="result-name"></div>
+        <div class="result-desc" id="result-desc"></div>
+        <div class="result-tags" id="result-tags"></div>
+      </div>
+    </div>
+  </div>
+
+  <button id="recommend-btn">
+    <span class="btn-text">🎲 메뉴 추천하기</span>
+  </button>
+
+  <div class="category-filter" id="category-filter">
+    <button class="pill active" data-cat="전체">✨ 전체</button>
+    <button class="pill" data-cat="한식">🇰🇷 한식</button>
+    <button class="pill" data-cat="중식">🥢 중식</button>
+    <button class="pill" data-cat="일식">🍣 일식</button>
+    <button class="pill" data-cat="양식">🍝 양식</button>
+    <button class="pill" data-cat="분식">🍢 분식</button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-title" id="history-title" style="display:none">📋 추천 기록</div>
+    <div id="history-list"></div>
+  </div>
+
+</div>
+
+<footer>오늘도 맛있는 한 끼 되세요! 🍀</footer>
+
+<script>
+  const MENUS = [
+    { name: '김치찌개',   emoji: '🍲', category: '한식', color: '#ff6b6b', desc: '얼큰하고 진한 국물의 한국인 소울푸드!', tags: ['얼큰', '따뜻함', '국물'] },
+    { name: '삼겹살',     emoji: '🥓', category: '한식', color: '#ff6b6b', desc: '구워 먹는 즐거움, 쌈에 싸 먹으면 더 맛있어요!', tags: ['고기', '구이', '회식'] },
+    { name: '비빔밥',     emoji: '🥗', category: '한식', color: '#ff6b6b', desc: '색색의 나물과 고추장이 어우러진 영양 한 그릇!', tags: ['건강', '나물', '비벼먹기'] },
+    { name: '순두부찌개', emoji: '🍛', category: '한식', color: '#ff6b6b', desc: '부드러운 순두부와 칼칼한 국물의 조화!', tags: ['얼큰', '부드러움', '속편함'] },
+    { name: '짜장면',     emoji: '🍜', category: '중식', color: '#ff8c42', desc: '검은 춘장 소스에 버무린 달콤 짭조름한 면 요리!', tags: ['면', '짜장', '달콤'] },
+    { name: '짬뽕',       emoji: '🦐', category: '중식', color: '#ff8c42', desc: '해물과 야채가 가득한 매콤한 국물 면 요리!', tags: ['해물', '얼큰', '면'] },
+    { name: '탕수육',     emoji: '🍖', category: '중식', color: '#ff8c42', desc: '바삭한 튀김과 새콤달콤한 소스가 찰떡궁합!', tags: ['부먹', '찍먹', '바삭'] },
+    { name: '초밥',       emoji: '🍣', category: '일식', color: '#4d96ff', desc: '신선한 생선과 식초 밥의 만남, 한입에 쏙!', tags: ['신선', '담백', '고급'] },
+    { name: '라멘',       emoji: '🍥', category: '일식', color: '#4d96ff', desc: '진한 육수에 쫄깃한 면, 일본 정통 라멘!', tags: ['면', '국물', '풍부함'] },
+    { name: '돈카츠',     emoji: '🥩', category: '일식', color: '#4d96ff', desc: '두툼하고 바삭한 돼지고기 커틀릿, 소스와 함께!', tags: ['바삭', '고기', '소스'] },
+    { name: '파스타',     emoji: '🍝', category: '양식', color: '#6bcb77', desc: '알덴테 면에 크림 혹은 토마토 소스의 이탈리안!', tags: ['면', '크리미', '이탤리안'] },
+    { name: '피자',       emoji: '🍕', category: '양식', color: '#6bcb77', desc: '쫄깃한 도우에 토핑 가득, 나눠 먹어요!', tags: ['치즈', '나눔', '배달'] },
+    { name: '스테이크',   emoji: '🥩', category: '양식', color: '#6bcb77', desc: '두툼하게 구운 소고기, 오늘은 특별한 날!', tags: ['고급', '고기', '특별'] },
+    { name: '떡볶이',     emoji: '🌶️', category: '분식', color: '#ffd93d', desc: '쫄깃한 떡과 어묵, 달콤 매콤한 국민 간식!', tags: ['매콤', '쫄깃', '간식'] },
+    { name: '김밥',       emoji: '🌀', category: '분식', color: '#ffd93d', desc: '속 재료 가득 돌돌 만 든든한 한 줄 김밥!', tags: ['간편', '든든', '소풍'] },
+  ];
+
+  let selectedCat = '전체';
+  let history = [];
+  let spinning = false;
+
+  const btn          = document.getElementById('recommend-btn');
+  const card         = document.getElementById('result-card');
+  const slot         = document.getElementById('slot-container');
+  const slotInner    = document.getElementById('slot-inner');
+  const resultEmoji  = document.getElementById('result-emoji');
+  const resultCat    = document.getElementById('result-category');
+  const resultName   = document.getElementById('result-name');
+  const resultDesc   = document.getElementById('result-desc');
+  const resultTags   = document.getElementById('result-tags');
+  const historyList  = document.getElementById('history-list');
+  const historyTitle = document.getElementById('history-title');
+  const filterEl     = document.getElementById('category-filter');
+
+  filterEl.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      filterEl.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedCat = pill.dataset.cat;
+    });
+  });
+
+  btn.addEventListener('click', () => {
+    if (spinning) return;
+    spinning = true;
+    btn.disabled = true;
+
+    const pool = MENUS.filter(m => selectedCat === '전체' || m.category === selectedCat);
+    if (pool.length === 0) { spinning = false; btn.disabled = false; return; }
+
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+
+    card.classList.remove('active', 'spinning');
+    card.classList.add('spinning');
+    slot.classList.add('spinning');
+    animateSlot(pool);
+
+    setTimeout(() => {
+      slot.classList.remove('spinning');
+      card.classList.remove('spinning');
+      card.classList.add('active');
+
+      document.documentElement.style.setProperty('--glow-color', pick.color);
+
+      resultEmoji.textContent = pick.emoji;
+      resultCat.textContent   = pick.category;
+      resultCat.style.color   = pick.color;
+      resultCat.style.background = pick.color + '22';
+      resultName.textContent  = pick.name;
+      resultDesc.textContent  = pick.desc;
+      resultTags.innerHTML    = pick.tags.map(t => `<span class="tag">#${t}</span>`).join('');
+
+      launchConfetti(pick.color);
+      addHistory(pick);
+
+      spinning = false;
+      btn.disabled = false;
+      btn.querySelector('.btn-text').innerHTML = '🎲 다시 뽑기';
+    }, 1600);
+  });
+
+  function animateSlot(pool) {
+    let frame = 0;
+    const interval = setInterval(() => {
+      const r = pool[Math.floor(Math.random() * pool.length)];
+      slotInner.innerHTML = `<div>${r.emoji} ${r.name}</div><div>${r.emoji} ${r.name}</div>`;
+      frame++;
+      if (frame > 20) clearInterval(interval);
+    }, 80);
+  }
+
+  function addHistory(pick) {
+    history.unshift({ ...pick, time: new Date() });
+    if (history.length > 5) history.pop();
+    historyTitle.style.display = 'block';
+    historyList.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div class="history-emoji">${h.emoji}</div>
+        <div class="history-info">
+          <div class="history-name">${h.name}</div>
+          <div class="history-cat">${h.category}</div>
+        </div>
+        <div class="history-time">${h.time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+    `).join('');
+  }
+
+  /* Confetti */
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx    = canvas.getContext('2d');
+  let confettiParticles = [];
+
+  function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function launchConfetti(baseColor) {
+    confettiParticles = [];
+    const colors = [baseColor, '#ffd93d', '#4d96ff', '#6bcb77', '#ff6b6b', '#ffffff'];
+    for (let i = 0; i < 120; i++) {
+      confettiParticles.push({
+        x: Math.random() * canvas.width, y: -10,
+        vx: (Math.random() - 0.5) * 4, vy: Math.random() * 4 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4, rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 8, shape: Math.random() > 0.5 ? 'rect' : 'circle', opacity: 1,
+      });
+    }
+    requestAnimationFrame(drawConfetti);
+  }
+
+  function drawConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    confettiParticles.forEach(p => {
+      if (p.y > canvas.height + 20) return;
+      alive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rotation += p.rotSpeed; p.opacity = Math.max(0, p.opacity - 0.005);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rotation * Math.PI) / 180); ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color;
+      if (p.shape === 'circle') { ctx.beginPath(); ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); }
+      ctx.restore();
+    });
+    if (alive) requestAnimationFrame(drawConfetti);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  /* Floating Particles */
+  const foodEmojis = ['🍜', '🍣', '🍕', '🌮', '🍔', '🍱', '🥘', '🍛', '🥗', '🍩', '🍦', '🧆', '🥙'];
+  const particleContainer = document.getElementById('particles');
+
+  function createParticle() {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    el.textContent = foodEmojis[Math.floor(Math.random() * foodEmojis.length)];
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.fontSize = (Math.random() * 1.2 + 0.8) + 'rem';
+    const dur = Math.random() * 14 + 10;
+    el.style.animationDuration = dur + 's';
+    el.style.animationDelay = (Math.random() * 10) + 's';
+    particleContainer.appendChild(el);
+    setTimeout(() => el.remove(), (dur + 10) * 1000);
+  }
+
+  for (let i = 0; i < 14; i++) createParticle();
+  setInterval(() => createParticle(), 2500);
+</script>
+</body>
+</html>
